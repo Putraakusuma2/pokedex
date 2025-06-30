@@ -1,7 +1,7 @@
 const CACHE_NAME = 'pokedex-cache-v1';
 const urlsToCache = [
   '/',
-  '/pokedex.html',
+  '/index.html',
   '/pokedex.js',
   '/manifest.json',
   '/icon-192.png',
