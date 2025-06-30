@@ -10,7 +10,7 @@
     {
       "src": "/images/pokedex-preview.jpg",
       "sizes": "540x960",
-      "type": "image/png",
+      "type": "image/jpg",
       "label": "Beranda Pokedex"
     }
   ],

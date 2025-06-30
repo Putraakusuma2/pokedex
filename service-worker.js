@@ -1,11 +1,11 @@
 const CACHE_NAME = 'pokedex-cache-v1';
 const urlsToCache = [
-  'app.js',
-  'index.html',
-  'pokedex.js',
-  'manifest.json',
-  'images/pokeball.png',
-  'images/pokedex-preview.png'
+  '/app.js',
+  '/index.html',
+  '/pokedex.js',
+  '/manifest.json',
+  '/images/pokeball.png',
+  '/images/pokedex-preview.jpg'
 ];
 
 self.addEventListener('install', event => {
