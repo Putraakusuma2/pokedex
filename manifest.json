@@ -6,6 +6,14 @@
   "background_color": "#f2f2f2",
   "theme_color": "#e3350d",
   "description": "A beautiful and responsive Pokedex web app.",
+  "screenshots": [
+    {
+      "src": "/images/pokedex-preview.jpg",
+      "sizes": "540x960",
+      "type": "image/png",
+      "label": "Beranda Pokedex"
+    }
+  ],
   "icons": [
     {
       "src": "/images/pokedex.png",
