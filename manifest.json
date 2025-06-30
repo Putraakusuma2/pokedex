@@ -1,0 +1,21 @@
+{
+  "name": "Pokedex",
+  "short_name": "Pokedex",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f2f2f2",
+  "theme_color": "#e3350d",
+  "description": "A beautiful and responsive Pokedex web app.",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
