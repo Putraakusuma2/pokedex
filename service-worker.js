@@ -1,12 +1,11 @@
 const CACHE_NAME = 'pokedex-cache-v1';
 const urlsToCache = [
-  // '/', // Hapus root agar tidak error
   'app.js',
   'index.html',
   'pokedex.js',
   'manifest.json',
-  'images/pokeball.png'
-  // CDN file will be cached dynamically if needed
+  'images/pokeball.png',
+  'images/pokedex-preview.png'
 ];
 
 self.addEventListener('install', event => {
