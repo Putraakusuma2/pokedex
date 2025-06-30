@@ -1,20 +1,22 @@
 const CACHE_NAME = 'pokedex-cache-v1';
 const urlsToCache = [
-  '/',
+  // '/', // Hapus root agar tidak error
   '/index.html',
+  '/app.js',
   '/pokedex.js',
   '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
-  'https://cdn.tailwindcss.com'
+  '/images/pokeball.png'
+  // CDN file will be cached dynamically if needed
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return(cache => cache.addAll(urlsToCache))
+      return cache.addAll(urlsToCache).catch(err => {
+        console.error('Cache addAll error:', err, urlsToCache);
+      });
     })
-);
+  );
   self.skipWaiting();
 });
 

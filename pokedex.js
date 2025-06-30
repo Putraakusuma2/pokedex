@@ -16,14 +16,109 @@ const typeColors = {
   dragon: "bg-indigo-600", dark: "bg-gray-800", steel: "bg-gray-500", fairy: "bg-pink-300 text-black"
 };
 
+
 let allPokemon = [];
+
+// IndexedDB setup for favorites & pokemon cache
+let favoritePokemon = [];
+let db;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open('pokedexDB', 2);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+    request.onupgradeneeded = (event) => {
+      db = event.target.result;
+      if (!db.objectStoreNames.contains('favorites')) {
+        db.createObjectStore('favorites', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('pokemon')) {
+        db.createObjectStore('pokemon', { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+function savePokemonToCache(pokemonList) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('pokemon', 'readwrite');
+    const store = tx.objectStore('pokemon');
+    pokemonList.forEach(p => store.put(p));
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function getAllCachedPokemon() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('pokemon', 'readonly');
+    const store = tx.objectStore('pokemon');
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function getAllFavorites() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('favorites', 'readonly');
+    const store = tx.objectStore('favorites');
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result.map(f => f.id));
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function addFavorite(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('favorites', 'readwrite');
+    const store = tx.objectStore('favorites');
+    store.put({ id });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function removeFavorite(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('favorites', 'readwrite');
+    const store = tx.objectStore('favorites');
+    store.delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function isFavorite(id) {
+  return favoritePokemon.includes(id);
+}
+
+async function toggleFavorite(id) {
+  if (isFavorite(id)) {
+    await removeFavorite(id);
+    favoritePokemon = favoritePokemon.filter(favId => favId !== id);
+  } else {
+    await addFavorite(id);
+    favoritePokemon.push(id);
+  }
+  renderPokemons(allPokemon);
+}
+
 
 
 async function fetchAllPokemon() {
-  // Get all pokemon names (limit 1008 for Gen 9, adjust if needed)
+  // Jika offline, ambil dari cache IndexedDB
+  if (!navigator.onLine) {
+    const cached = await getAllCachedPokemon();
+    renderPokemons(cached);
+    return cached;
+  }
+  // Online: fetch dari API, lalu simpan ke cache
   const res = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1008');
   const data = await res.json();
-  // Fetch details in batches for performance
   const batchSize = 30;
   let detailed = [];
   for (let i = 0; i < data.results.length; i += batchSize) {
@@ -33,6 +128,8 @@ async function fetchAllPokemon() {
     );
     detailed = detailed.concat(batchDetails);
     renderPokemons(detailed); // Progressive render for better UX
+    // Simpan batch ke cache agar progresif
+    await savePokemonToCache(batchDetails);
   }
   return detailed;
 }
@@ -54,7 +151,11 @@ function renderPokemons(pokemonList) {
   filtered.forEach(pokemon => {
     const card = document.createElement("div");
     card.className = "bg-gradient-to-br from-white to-pink-100 p-4 rounded-xl text-center shadow-lg border-2 border-red-100 hover:scale-105 hover:border-red-400 transition cursor-pointer flex flex-col items-center relative";
+    // Ikon hati SVG
+    const heartFilled = `<svg class='w-6 h-6 text-pink-500' fill='currentColor' viewBox='0 0 20 20'><path d='M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z'/></svg>`;
+    const heartOutline = `<svg class='w-6 h-6 text-gray-300 hover:text-pink-400 transition' fill='none' stroke='currentColor' stroke-width='2' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 21.682l-7.682-7.682a4.5 4.5 0 010-6.364z'/></svg>`;
     card.innerHTML = `
+      <button class="absolute right-3 top-3 z-10 bg-white bg-opacity-80 rounded-full p-1 shadow" title="Favoritkan" onclick="event.stopPropagation(); window.toggleFavorite(${pokemon.id})">${isFavorite(pokemon.id) ? heartFilled : heartOutline}</button>
       <span class="absolute left-3 top-3 text-xs font-bold text-red-500 bg-white bg-opacity-80 rounded px-2 py-0.5 shadow-sm">#${pokemon.id}</span>
       <img src="${pokemon.sprites.front_default}" alt="${pokemon.name}" class="w-24 h-24 mb-2 bg-white rounded-full p-2 border-2 border-red-100 shadow" />
       <p class="font-bold text-lg text-gray-800 capitalize tracking-wide">${pokemon.name}</p>
@@ -135,8 +236,15 @@ if (regionSelect) {
 }
 
 
-// Initial load
+
+
+// Expose toggleFavorite to window for inline onclick
+window.toggleFavorite = toggleFavorite;
+
+// Initial load with IndexedDB
 (async () => {
+  await openDB();
+  favoritePokemon = await getAllFavorites();
   allPokemon = await fetchAllPokemon();
   renderPokemons(allPokemon);
 })();
