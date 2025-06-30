@@ -65,7 +65,9 @@ function renderPokemons(pokemonList) {
 }
 
 function showDialog(pokemon) {
-  document.getElementById("poke-name").textContent = pokemon.name;
+  const pokeName = document.getElementById("poke-name");
+  pokeName.textContent = pokemon.name;
+  pokeName.className = "text-2xl sm:text-3xl font-extrabold text-red-700 mb-2 capitalize tracking-wide drop-shadow";
   document.getElementById("poke-img").src = pokemon.sprites.other["official-artwork"].front_default;
   document.getElementById("poke-height").textContent = pokemon.height;
   document.getElementById("poke-weight").textContent = pokemon.weight;
@@ -81,7 +83,6 @@ function showDialog(pokemon) {
   }
   const mainAbility = pokemon.abilities && pokemon.abilities.length > 0 ? pokemon.abilities[0].ability.name : "-";
   extraInfo.innerHTML = `
-    <div><strong>ID:</strong> #${pokemon.id}</div>
     <div><strong>Main Ability:</strong> ${mainAbility}</div>
     <div><strong>Base Exp:</strong> ${pokemon.base_experience}</div>
   `;
