@@ -53,8 +53,9 @@ function renderPokemons(pokemonList) {
 
   filtered.forEach(pokemon => {
     const card = document.createElement("div");
-    card.className = "bg-gradient-to-br from-white to-pink-100 p-4 rounded-xl text-center shadow-lg border-2 border-red-100 hover:scale-105 hover:border-red-400 transition cursor-pointer flex flex-col items-center";
+    card.className = "bg-gradient-to-br from-white to-pink-100 p-4 rounded-xl text-center shadow-lg border-2 border-red-100 hover:scale-105 hover:border-red-400 transition cursor-pointer flex flex-col items-center relative";
     card.innerHTML = `
+      <span class="absolute left-3 top-3 text-xs font-bold text-red-500 bg-white bg-opacity-80 rounded px-2 py-0.5 shadow-sm">#${pokemon.id}</span>
       <img src="${pokemon.sprites.front_default}" alt="${pokemon.name}" class="w-24 h-24 mb-2 bg-white rounded-full p-2 border-2 border-red-100 shadow" />
       <p class="font-bold text-lg text-gray-800 capitalize tracking-wide">${pokemon.name}</p>
     `;
@@ -68,6 +69,22 @@ function showDialog(pokemon) {
   document.getElementById("poke-img").src = pokemon.sprites.other["official-artwork"].front_default;
   document.getElementById("poke-height").textContent = pokemon.height;
   document.getElementById("poke-weight").textContent = pokemon.weight;
+
+  // Tambahan detail: ID, Base Experience, Ability utama
+  let extraInfo = document.getElementById("poke-extra");
+  if (!extraInfo) {
+    extraInfo = document.createElement("div");
+    extraInfo.id = "poke-extra";
+    extraInfo.className = "mb-2 text-gray-700 text-xs sm:text-sm";
+    const dialog = document.getElementById("dialog");
+    dialog.insertBefore(extraInfo, document.getElementById("poke-types"));
+  }
+  const mainAbility = pokemon.abilities && pokemon.abilities.length > 0 ? pokemon.abilities[0].ability.name : "-";
+  extraInfo.innerHTML = `
+    <div><strong>ID:</strong> #${pokemon.id}</div>
+    <div><strong>Main Ability:</strong> ${mainAbility}</div>
+    <div><strong>Base Exp:</strong> ${pokemon.base_experience}</div>
+  `;
 
   const typesDiv = document.getElementById("poke-types");
   typesDiv.innerHTML = "";
