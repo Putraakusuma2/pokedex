@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pokémon Detail</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" type="image/png" href="/images/pokedex.png">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body class="bg-gradient-to-b from-[#18192a] via-[#18192a] to-[#23243a] min-h-screen text-white flex flex-col items-center justify-center">
+  <div class="w-full max-w-md mx-auto mt-8 p-6 rounded-2xl shadow-2xl bg-gradient-to-br from-[#23243a] to-[#18192a] border-2 border-blue-400/60">
+    <button onclick="window.location.href='index.html'" class="mb-4 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-semibold shadow transition text-sm">&larr; Back</button>
+    <div id="detail-content" class="flex flex-col items-center justify-center min-h-[300px]">
+      <div class="text-cyan-300 text-lg font-bold animate-pulse">Loading...</div>
+    </div>
+  </div>
+  <script>
+    async function getPokemonDetail(id) {
+      // Try cache first (IndexedDB)
+      let db;
+      function openDB() {
+        return new Promise((resolve, reject) => {
+          const request = window.indexedDB.open('pokedexDB', 3);
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve(request.result);
+        });
+      }
+      function getFromCache(db, id) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('pokemon', 'readonly');
+          const store = tx.objectStore('pokemon');
+          const req = store.get(Number(id));
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+      }
+      db = await openDB().catch(() => null);
+      let data = null;
+      if (db) {
+        data = await getFromCache(db, id).catch(() => null);
+      }
+      if (!data) {
+        // Fallback to API
+        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+        if (!res.ok) throw new Error('Not found');
+        data = await res.json();
+      }
+      return data;
+    }
+
+    function typeBadge(type) {
+      const colorMap = {
+        fire: "bg-gradient-to-r from-orange-500 to-yellow-400 text-white border-orange-300",
+        water: "bg-gradient-to-r from-blue-500 to-cyan-400 text-white border-cyan-300",
+        grass: "bg-gradient-to-r from-green-500 to-lime-400 text-white border-green-300",
+        electric: "bg-gradient-to-r from-yellow-400 to-yellow-200 text-black border-yellow-300",
+        normal: "bg-gradient-to-r from-gray-400 to-gray-300 text-white border-gray-300",
+        poison: "bg-gradient-to-r from-purple-500 to-fuchsia-400 text-white border-purple-300",
+        bug: "bg-gradient-to-r from-lime-600 to-green-400 text-white border-lime-300",
+        ground: "bg-gradient-to-r from-yellow-700 to-yellow-500 text-white border-yellow-400",
+        flying: "bg-gradient-to-r from-indigo-400 to-blue-200 text-white border-indigo-300",
+        psychic: "bg-gradient-to-r from-pink-500 to-pink-300 text-white border-pink-300",
+        rock: "bg-gradient-to-r from-yellow-800 to-yellow-600 text-white border-yellow-700",
+        ghost: "bg-gradient-to-r from-indigo-800 to-indigo-400 text-white border-indigo-300",
+        dragon: "bg-gradient-to-r from-indigo-600 to-blue-400 text-white border-indigo-300",
+        dark: "bg-gradient-to-r from-gray-800 to-gray-600 text-white border-gray-500",
+        steel: "bg-gradient-to-r from-gray-500 to-gray-300 text-white border-gray-400",
+        fairy: "bg-gradient-to-r from-pink-300 to-pink-100 text-black border-pink-200"
+      };
+      // Icon SVG, fallback jika tidak ada file tetap tampil label
+      const iconUrl = `images/icons/${type}.svg`;
+      const label = type.charAt(0).toUpperCase() + type.slice(1);
+      return `<span class="px-3 py-1 rounded-full font-bold text-sm shadow-md mr-2 border flex items-center gap-1 ${colorMap[type] || 'bg-gray-500'} drop-shadow">
+        <img src="${iconUrl}" alt="${label} icon" class="w-5 h-5 inline-block align-middle" onerror="this.style.display='none'" />
+        <span>${label}</span>
+      </span>`;
+    }
+
+    async function renderDetail() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      const container = document.getElementById('detail-content');
+      if (!id) {
+        container.innerHTML = '<div class="text-red-400 text-center">Pokémon ID tidak ditemukan.</div>';
+        return;
+      }
+      try {
+        const p = await getPokemonDetail(id);
+        // Fetch species for extra info & evolution chain
+        let evoHtml = '';
+        let species = null;
+        let extraHtml = '';
+        try {
+          const speciesRes = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`);
+          if (!speciesRes.ok) throw new Error('Gagal fetch species');
+          species = await speciesRes.json();
+          // --- Extra Info ---
+          // Genus (species)
+          const genus = (species.genera && species.genera.find(g => g.language.name === 'en'))?.genus || '-';
+          // Flavor text (deskripsi)
+          const flavor = (species.flavor_text_entries && species.flavor_text_entries.find(f => f.language.name === 'en'))?.flavor_text.replace(/\f|\n|\r/g, ' ') || '-';
+          // Gender ratio
+          let genderRate = species.gender_rate;
+          let genderText = '-';
+          if (genderRate === -1) genderText = 'Genderless';
+          else {
+            const female = (genderRate / 8) * 100;
+            const male = 100 - female;
+            genderText = `${male}% ♂ / ${female}% ♀`;
+          }
+          // Catch rate
+          const catchRate = species.capture_rate;
+          // Egg groups
+          const eggGroups = (species.egg_groups || []).map(e => e.name).join(', ') || '-';
+          // Habitat
+          const habitat = species.habitat ? species.habitat.name : '-';
+          // Shape
+          const shape = species.shape ? species.shape.name : '-';
+          // Color
+          const color = species.color ? species.color.name : '-';
+          // Growth rate
+          const growth = species.growth_rate ? species.growth_rate.name : '-';
+          // Extra info HTML
+          extraHtml = `
+            <div class="w-full max-w-xs mx-auto bg-[#1a1b2a] bg-opacity-80 rounded-xl border border-cyan-900 shadow p-4 mt-2 mb-4">
+              <div class="text-cyan-300 text-base font-bold mb-1">${genus}</div>
+              <div class="text-cyan-100 text-sm mb-2 italic">${flavor}</div>
+              <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-cyan-200 text-sm">
+                <div><span class="font-semibold text-cyan-400">Gender:</span> ${genderText}</div>
+                <div><span class="font-semibold text-cyan-400">Catch Rate:</span> ${catchRate}</div>
+                <div><span class="font-semibold text-cyan-400">Egg Group:</span> ${eggGroups}</div>
+                <div><span class="font-semibold text-cyan-400">Habitat:</span> ${habitat}</div>
+                <div><span class="font-semibold text-cyan-400">Shape:</span> ${shape}</div>
+                <div><span class="font-semibold text-cyan-400">Color:</span> ${color}</div>
+                <div><span class="font-semibold text-cyan-400">Growth:</span> ${growth}</div>
+              </div>
+            </div>
+          `;
+          // --- Evolution Chain ---
+          if (species.evolution_chain && species.evolution_chain.url) {
+            const evoRes = await fetch(species.evolution_chain.url);
+            if (!evoRes.ok) throw new Error('Gagal fetch evolution chain');
+            const evoData = await evoRes.json();
+            function parseChain(chain) {
+              const evoArr = [];
+              function traverse(node) {
+                evoArr.push({
+                  name: node.species.name,
+                  url: node.species.url,
+                });
+                if (node.evolves_to && node.evolves_to.length > 0) {
+                  node.evolves_to.forEach(traverse);
+                }
+              }
+              traverse(chain);
+              return evoArr;
+            }
+            const evoArr = parseChain(evoData.chain);
+            const evoDetails = await Promise.all(
+              evoArr.map(async evo => {
+                try {
+                  const pokeRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${evo.name}`);
+                  if (!pokeRes.ok) return { name: evo.name, id: null, img: null };
+                  const poke = await pokeRes.json();
+                  return {
+                    name: poke.name,
+                    id: poke.id,
+                    img: poke.sprites.other["official-artwork"].front_default || poke.sprites.front_default
+                  };
+                } catch {
+                  return { name: evo.name, id: null, img: null };
+                }
+              })
+            );
+            evoHtml = `<div class="mt-8 w-full">
+              <h3 class="text-cyan-300 text-lg font-bold mb-3 text-center">Evolution Chain</h3>
+              <div class="flex flex-row flex-wrap justify-center items-center gap-2" id="evo-chain-list">
+                ${evoDetails.map((evo, idx) => `
+                  <div class="flex flex-col items-center group cursor-pointer transition hover:scale-105" data-id="${evo.id || ''}" style="min-width:90px;" tabindex="0">
+                    <div class="w-20 h-20 bg-[#18192a] rounded-full border-2 border-cyan-400 flex items-center justify-center mb-1 overflow-hidden shadow-[0_0_24px_4px_rgba(0,255,255,0.10)] group-hover:border-yellow-300 group-focus:border-yellow-300 transition">
+                      ${evo.img ? `<img src="${evo.img}" alt="${evo.name}" class="w-16 h-16 object-contain" />` : `<span class='text-xs text-cyan-200'>?</span>`}
+                    </div>
+                    <span class="text-cyan-100 font-semibold capitalize text-sm group-hover:text-yellow-200 group-focus:text-yellow-200 transition">${evo.name}</span>
+                    ${evo.id ? `<span class="text-xs text-cyan-400 font-mono">${String(evo.id).padStart(4, '0')}</span>` : ''}
+                  </div>
+                  ${idx < evoDetails.length - 1 ? `<span class="text-cyan-400 text-2xl mx-1">→</span>` : ''}
+                `).join('')}
+              </div>
+            </div>`;
+          }
+        } catch (evoErr) {
+          evoHtml = `<div class='text-cyan-400 text-center mt-6'>Evolution data not available.</div>`;
+        }
+        // Ambil animasi 3D (sprite GIF) jika ada
+        let sprite3d = null;
+        try {
+          sprite3d = p.sprites.versions?.['generation-v']?.['black-white']?.animated?.front_default || null;
+        } catch {}
+        const imgSrc = sprite3d || p.sprites.other["official-artwork"].front_default || p.sprites.front_default;
+        container.innerHTML = `
+          <div class="flex flex-col items-center w-full">
+            <div class="relative w-44 h-44 mb-3 flex items-center justify-center">
+              <div class="absolute w-44 h-44 rounded-full bg-gradient-to-br from-cyan-700/30 to-blue-400/10 blur-2xl z-0 animate-pulse"></div>
+              <img src="${imgSrc}" alt="${p.name}" class="w-40 h-40 object-contain bg-[#18192a] rounded-full p-2 border-2 border-blue-200 shadow-lg z-10" />
+            </div>
+            <span class="font-mono text-cyan-100 text-lg font-extrabold tracking-[0.22em] drop-shadow-xl leading-none mb-1">${String(p.id).padStart(4, '0')}</span>
+            <h2 class="font-extrabold text-2xl sm:text-3xl text-cyan-100 capitalize tracking-wide z-10 text-center mb-2">${p.name}</h2>
+            <div class="flex flex-row justify-center items-center gap-2 mb-3">${p.types.map(t => typeBadge(t.type.name)).join('')}</div>
+            <div class="flex flex-col gap-1 w-full max-w-xs mx-auto text-cyan-200 text-base mb-2">
+              <div><span class="font-semibold text-cyan-400">Height:</span> ${p.height}</div>
+              <div><span class="font-semibold text-cyan-400">Weight:</span> ${p.weight}</div>
+              <div><span class="font-semibold text-cyan-400">Base Exp:</span> ${p.base_experience}</div>
+              <div><span class="font-semibold text-cyan-400">Main Ability:</span> ${p.abilities && p.abilities.length > 0 ? p.abilities[0].ability.name : '-'}</div>
+              <div><span class="font-semibold text-cyan-400">Order:</span> ${p.order}</div>
+              <div><span class="font-semibold text-cyan-400">Base Stat Total:</span> ${p.stats ? p.stats.reduce((a,b)=>a+b.base_stat,0) : '-'}</div>
+            </div>
+            ${extraHtml}
+            ${evoHtml}
+          </div>
+        `;
+        // Tambahkan event klik pada evolution chain
+        const evoChainList = document.getElementById('evo-chain-list');
+        if (evoChainList) {
+          evoChainList.querySelectorAll('[data-id]').forEach(el => {
+            const pokeId = el.getAttribute('data-id');
+            if (pokeId) {
+              el.addEventListener('click', () => {
+                window.location.href = `detail.html?id=${pokeId}`;
+              });
+              el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  window.location.href = `detail.html?id=${pokeId}`;
+                }
+              });
+            }
+          });
+        }
+      } catch (e) {
+        container.innerHTML = `<div class='text-red-400 text-center'>Gagal memuat detail Pokémon.<br>${e}</div>`;
+      }
+    }
+    renderDetail();
+  </script>
+</body>
+</html>
